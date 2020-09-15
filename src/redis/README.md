@@ -45,15 +45,17 @@ Prometheus doesn't like importing bulk historical data, but that's the cheapest 
 1. Create a new PaaS user
 1. Give the new user Space Auditor permissions on every space with Redises you want metrics for (the Org Auditor permission doesn't work for this)
 1. Configure your Prometheus to scrape `https://redis.metrics.[london.]cloud.service.gov.uk/metrics`:
-  * Provide the PaaS user's username and password to Prometheus for use as basic auth credentials
-	* Set the scrape period to 5 minutes (300 seconds)
+  
+    * Provide the PaaS user's username and password to Prometheus for use as basic auth credentials
+    * Set the scrape period to 5 minutes (300 seconds)
 1. Within a few minutes you should now have metrics coming into your Prometheus
 
 We strongly suggest not giving that PaaS user any write permissions, only auditor permissions. This ensures that someone who breaks into Prometheus can't start modifying or accessing your resources in PaaS.
 
-Here is an example Prometheus config, which will rename the metrics to be more easily discoverable:
+Here is an example Prometheus config, which will rename the metrics to `paas_redis_*` be more easily discoverable:
 
 ```yaml
+scrape_configs:
 - job_name: paas_redis_metrics
   scheme: https
   basic_auth:
@@ -61,12 +63,16 @@ Here is an example Prometheus config, which will rename the metrics to be more e
     password: PASSWORD_OF_THE_AUDITOR_USER_YOU_CREATED
   static_configs:
   - targets:
-    - https://redis.metrics.london.cloud.service.gov.uk
+    - redis.metrics.london.cloud.service.gov.uk
+  metrics_path: /metrics
+  scrape_interval: 300s
+  scrape_timeout: 120s
+  honor_timestamps: true
   metric_relabel_configs:
   # Prepend `paas_redis_` so the metrics are easier to find
   - action: replace
     source_labels: [__name__]
     target_label: __name__
     regex: (.*)
-    replacement: paas_redis_$${1}
+    replacement: paas_redis_${1}
 ```
